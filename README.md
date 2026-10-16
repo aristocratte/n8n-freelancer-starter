@@ -3,7 +3,7 @@
 Two free n8n workflows for freelancers who invoice businesses in Europe or the UK.
 
 1. **Client VAT and company check** (`workflows/01-client-vat-check.json`)  
-   Paste an EU VAT number. Queries the official VIES service and returns validity, company name and address. Bad formats are caught before the API call. Handles per-country VIES downtime.
+   Paste an EU VAT number. Queries the official VIES service and returns validity, company name and address. Bad formats are caught before the API call. If VIES is down for a country, it says so instead of marking the number invalid.
 
 2. **Revenue and tax threshold tracker** (`workflows/03-revenue-threshold-tracker.json`)  
    Sums year-to-date cash received (multi-currency, free ECB-based FX) and warns at 80%, 95% and 100% of your VAT or tax-regime limit. Presets for France and the UK, or set your own.
@@ -15,8 +15,8 @@ Two free n8n workflows for freelancers who invoice businesses in Europe or the U
 
 ## Quick start
 
-1. Import a JSON file from `workflows/` into n8n (Workflows → Import from File).
-2. Open the first Set / Manual Trigger node and put your sample input (examples in `tests/`).
+1. Import a JSON file from `workflows/` into n8n (Workflows, then Import from File).
+2. Activate it and call its webhook with sample input (examples in `tests/`).
 3. Follow `docs/SETUP-EN.md` or `docs/SETUP-FR.md`.
 
 ## License
@@ -27,7 +27,7 @@ MIT (see `LICENSE`).
 
 A zip with the EN/FR setup guide is also on Gumroad (free): https://ariscrd.gumroad.com/l/gohupb
 
-A paid kit adds automatic late-payment reminders (legal interest + €40 recovery fee).
+A full kit with late payment reminders is coming soon.
 
 ## Disclaimer
 
