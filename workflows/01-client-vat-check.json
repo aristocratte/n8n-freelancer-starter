@@ -1,0 +1,169 @@
+{
+  "id": "wf01VatCheck0001",
+  "name": "01 - Client VAT & Company Check (EU VIES)",
+  "nodes": [
+    {
+      "id": "adfebecd-e5d5-45a7-8aed-56f18737a8b5",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "client-vat-check",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {}
+      },
+      "webhookId": "bc6bf40a-1a45-4219-a73c-fc54f0214e58"
+    },
+    {
+      "id": "5b199223-5e19-4cc2-8250-739249b60e7e",
+      "name": "Normalize input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// CONFIG: nothing required. Input: { \"vat\": \"FR40303265045\" } or { \"countryCode\":\"FR\",\"vatNumber\":\"40303265045\" }\nconst b = $input.first().json.body || $input.first().json;\nlet cc = (b.countryCode||'').toUpperCase(), num = (b.vatNumber||'');\nif (b.vat) { const v = String(b.vat).replace(/[\\s.\\-]/g,'').toUpperCase(); cc = v.slice(0,2); num = v.slice(2); }\nnum = String(num).replace(/[\\s.\\-]/g,'');\nconst EU = ['AT','BE','BG','CY','CZ','DE','DK','EE','EL','ES','FI','FR','HR','HU','IE','IT','LT','LU','LV','MT','NL','PL','PT','RO','SE','SI','SK','XI'];\nif (cc==='GR') cc='EL';\nreturn [{ json: { countryCode: cc, vatNumber: num, formatOk: EU.includes(cc) && /^[0-9A-Z]{2,13}$/.test(num) } }];"
+      }
+    },
+    {
+      "id": "63519812-e1f5-4663-8185-9178ca018298",
+      "name": "If format OK",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.formatOk }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "215b9965-a307-4d21-9c95-52666a9001a7",
+      "name": "VIES check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        -100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({countryCode:$json.countryCode, vatNumber:$json.vatNumber}) }}",
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "01d8f9b8-4c39-44e3-9793-d280c23cc8cb",
+      "name": "Format result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const inp = $('Normalize input').first().json;\nif (!inp.formatOk) return [{json:{ok:false, status:'INVALID_FORMAT', message:'Not an EU VAT number format (expected e.g. FR40303265045).', input:inp}}];\nconst r = $input.first().json;\nif (r.errorWrappers || r.actionSucceed===false) return [{json:{ok:false,status:'VIES_UNAVAILABLE',message:'VIES temporarily unavailable, retry later. Do NOT treat as invalid.',details:r.errorWrappers||r}}];\nconst clean = s => (s && s!=='---') ? s.replace(/\\n/g,', ') : null;\nreturn [{json:{ ok:true, status: r.valid?'VALID':'NOT_VALID', vat: inp.countryCode+inp.vatNumber, name: clean(r.name), address: clean(r.address), checkedAt: r.requestDate,\n reverseChargeHint: r.valid ? 'B2B EU client with valid VAT: reverse charge may apply (mention \"Autoliquidation / Reverse charge, art. 196 Directive 2006/112/EC\"). Check with your accountant.' : 'VAT not valid: do not apply reverse charge.',\n invoiceBlock: r.valid ? `${clean(r.name)}\\n${clean(r.address)}\\nVAT: ${inp.countryCode}${inp.vatNumber}` : null }}];"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize input": {
+      "main": [
+        [
+          {
+            "node": "If format OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If format OK": {
+      "main": [
+        [
+          {
+            "node": "VIES check",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VIES check": {
+      "main": [
+        [
+          {
+            "node": "Format result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}
